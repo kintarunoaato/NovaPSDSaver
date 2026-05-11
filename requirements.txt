@@ -2,4 +2,4 @@ pip>=26.1.1
 flask==3.0.0
 gunicorn==21.2.0
 psd-tools==1.17.0
-pillow==9.5.0 --only-binary=:all:
+pillow==12.2.0
