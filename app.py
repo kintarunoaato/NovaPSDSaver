@@ -37,32 +37,36 @@ app = Flask(__name__)
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    print("DEBUG: request.files keys:", request.files.keys(), flush=True)
+    try:
+        print("DEBUG: request.files keys:", request.files.keys(), flush=True)
 
-    file = request.files['file']
-    filepath = os.path.join("/tmp", file.filename)
-    file.save(filepath)
+        file = request.files['file']
+        filepath = os.path.join("/tmp", file.filename)
+        file.save(filepath)
 
-    import os
-    if not os.path.exists(filepath):
-        return {"error": f"File not saved at {filepath}"}
-    else:
-        print("DEBUG: File saved at", filepath, "size=", os.path.getsize(filepath), flush=True)
+        import os
+        if not os.path.exists(filepath):
+            return {"error": f"File not saved at {filepath}"}
+        else:
+            print("DEBUG: File saved at", filepath, "size=", os.path.getsize(filepath), flush=True)
 
-    output_folder = "/tmp/output"
-    os.makedirs(output_folder, exist_ok=True)
+        output_folder = "/tmp/output"
+        os.makedirs(output_folder, exist_ok=True)
 
-    # Run the raw extractor
-    extract_layers(filepath, output_folder)
+        extract_layers(filepath, output_folder)
 
-    # Zip the PNGs
-    zip_path = os.path.join(output_folder, "layers.zip")
-    with zipfile.ZipFile(zip_path, "w") as z:
-        for f in os.listdir(output_folder):
-            if f.endswith(".png"):
-                z.write(os.path.join(output_folder, f), f)
+        zip_path = os.path.join(output_folder, "layers.zip")
+        with zipfile.ZipFile(zip_path, "w") as z:
+            for f in os.listdir(output_folder):
+                if f.endswith(".png"):
+                    z.write(os.path.join(output_folder, f), f)
 
-    return send_file(zip_path, as_attachment=True)
+        return send_file(zip_path, as_attachment=True)
+
+    except Exception as e:
+        print("ROUTE ERROR:", e, flush=True)
+        return {"error": str(e)}
+
 
 # === Entry point ===
 if __name__ == "__main__":
