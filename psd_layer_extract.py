@@ -10,6 +10,7 @@ def extract_layers(psd_path, output_folder):
     with zipfile.ZipFile(buf, "w") as z:
         for i, layer in enumerate(psd):
             # Only extract if layer is visible
+            print(f"Layer {i}: {layer.name}, visible={layer.visible}")
             if not layer.visible:
                 continue
             img = layer.topil()
