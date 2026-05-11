@@ -44,7 +44,6 @@ def upload():
         filepath = os.path.join("/tmp", file.filename)
         file.save(filepath)
 
-        import os
         if not os.path.exists(filepath):
             return {"error": f"File not saved at {filepath}"}
         else:
