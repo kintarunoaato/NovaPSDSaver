@@ -1,19 +1,25 @@
-def extract_layers(input_path, output_folder):
-    psd = PSDImage.open(input_path)
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+from psd_tools import PSDImage
+import os, zipfile, io
 
-    for i, layer in enumerate(psd.descendants()):
-        if layer.is_group():
-            continue
-        if layer.visible:
-            image = layer.composite()
-            if image:
-                filename = os.path.join(output_folder, f"layer_{i}_{layer.name}.png")
-                image.save(filename)
+def extract_layers(psd_path, output_folder):
+    psd = PSDImage.open(psd_path)
+    zip_path = os.path.join(output_folder, "layers.zip")
+    os.makedirs(output_folder, exist_ok=True)
 
-    # Zip the folder
-    zip_path = f"{output_folder}.zip"
-    import shutil
-    shutil.make_archive(output_folder, 'zip', output_folder)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for i, layer in enumerate(psd):
+            # Only extract if layer is visible
+            if not layer.visible:
+                continue
+            img = layer.topil()
+            if img is None:
+                continue
+            img_bytes = io.BytesIO()
+            img.save(img_bytes, format="PNG")
+            z.writestr(f"layer_{i}.png", img_bytes.getvalue())
+
+    buf.seek(0)
+    with open(zip_path, "wb") as f:
+        f.write(buf.getvalue())
     return zip_path
