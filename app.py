@@ -18,6 +18,7 @@ def extract_layers(input_path, output_folder):
             os.makedirs(output_folder)
 
         for i, layer in enumerate(psd.descendants()):
+            print("DEBUG: Layer", i, "name=", layer.name, "visible=", layer.visible, flush=True)
             if layer.is_group():
                 continue  # skip groups
             if layer.visible:
@@ -25,7 +26,7 @@ def extract_layers(input_path, output_folder):
                 if image:
                     filename = os.path.join(output_folder, f"layer_{i}_{layer.name}.png")
                     image.save(filename)
-                    print(f"Saved: {filename}")
+                    print(f"Saved: {filename}", flush=True)
 
         print("Layer extraction complete.")
 
