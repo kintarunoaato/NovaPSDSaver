@@ -1,8 +1,6 @@
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-logging.debug(f"Layer {i}: {layer.name}, visible={layer.visible}")
-
 from psd_tools import PSDImage
 import os, zipfile, io
 
@@ -20,6 +18,7 @@ def extract_layers(psd_path, output_folder):
                 continue
             img = layer.topil()
             if img is None:
+                logging.debug(f"Layer {i}: {layer.name}, visible={layer.visible}")
                 continue
             img_bytes = io.BytesIO()
             img.save(img_bytes, format="PNG")
