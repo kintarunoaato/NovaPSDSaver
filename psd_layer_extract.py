@@ -1,30 +1,20 @@
-import logging
-logging.basicConfig(level=logging.DEBUG)
+# helpers.py
+import os
 
-from psd_tools import PSDImage
-import os, zipfile, io
-
-def extract_layers(psd_path, output_folder):
-    psd = PSDImage.open(psd_path)
-    zip_path = os.path.join(output_folder, "layers.zip")
-    os.makedirs(output_folder, exist_ok=True)
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as z:
-        for i, layer in enumerate(psd):
-            # Only extract if layer is visible
-            print(f"Layer {i}: {layer.name}, visible={layer.visible}")
-            if not layer.visible:
-                continue
-            img = layer.topil()
-            if img is None:
-                logging.debug(f"Layer {i}: {layer.name}, visible={layer.visible}")
-                continue
-            img_bytes = io.BytesIO()
-            img.save(img_bytes, format="PNG")
-            z.writestr(f"layer_{i}.png", img_bytes.getvalue())
-
-    buf.seek(0)
-    with open(zip_path, "wb") as f:
-        f.write(buf.getvalue())
-    return zip_path
+def extract_active_layers(psd, output_folder):
+    """
+    Extract only active (visible) layers from a PSD.
+    Saves them as PNGs in output_folder.
+    Returns list of saved file paths.
+    """
+    saved_files = []
+    for i, layer in enumerate(psd):
+        if not layer.is_visible():
+            continue
+        image = layer.topil()
+        if image:
+            filename = os.path.join(output_folder, f"layer_{i}_{layer.name}.png")
+            image.save(filename)
+            saved_files.append(filename)
+            print(f"Saved active layer: {filename}", flush=True)
+    return saved_files
