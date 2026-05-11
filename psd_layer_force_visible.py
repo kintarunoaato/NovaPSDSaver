@@ -10,6 +10,7 @@ def extract_layers_force_visible(psd_path, output_folder):
     with zipfile.ZipFile(buf, "w") as z:
         for i, layer in enumerate(psd):
             # Force visibility before extraction
+            print(f"Layer {i}: {layer.name}, forced visible")
             layer.visible = True
             img = layer.topil()
             if img is None:
