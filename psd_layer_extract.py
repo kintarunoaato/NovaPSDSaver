@@ -1,10 +1,8 @@
-# helpers.py
 import os
 
-def extract_active_layers(psd, output_folder):
+def save_visible_layers(psd, output_folder):
     """
-    Extract only active (visible) layers from a PSD.
-    Saves them as PNGs in output_folder.
+    Extract and save only visible layers from a PSD.
     Returns list of saved file paths.
     """
     saved_files = []
@@ -13,8 +11,9 @@ def extract_active_layers(psd, output_folder):
             continue
         image = layer.topil()
         if image:
-            filename = os.path.join(output_folder, f"layer_{i}_{layer.name}.png")
+            safe_name = layer.name.replace(" ", "_") or f"layer_{i}"
+            filename = os.path.join(output_folder, f"{safe_name}.png")
             image.save(filename)
             saved_files.append(filename)
-            print(f"Saved active layer: {filename}", flush=True)
+            print(f"DEBUG: Saved visible layer {layer.name} -> {filename}", flush=True)
     return saved_files
