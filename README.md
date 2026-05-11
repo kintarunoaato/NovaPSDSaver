@@ -1,2 +1,2 @@
 # NovaPSDSaver
-psd recovery
+PSD recovery service with free and paid tiers.
