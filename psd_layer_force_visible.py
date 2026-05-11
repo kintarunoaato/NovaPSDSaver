@@ -3,7 +3,7 @@ import zipfile
 import io
 from psd_tools import PSDImage
 
-def save_force_visible_layers(psd_path, output_folder):
+def extract_layers_force_visible(psd_path, output_folder):
     """
     Extract all layers from a PSD by forcing visibility.
     Saves them into a ZIP archive in output_folder.
@@ -16,7 +16,6 @@ def save_force_visible_layers(psd_path, output_folder):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         for i, layer in enumerate(psd):
-            # Force visibility before extraction
             print(f"DEBUG: Layer {i}: {layer.name}, forced visible")
             layer.visible = True
             img = layer.topil()
