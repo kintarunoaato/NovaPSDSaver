@@ -1,3 +1,8 @@
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+logging.debug(f"Layer {i}: {layer.name}, visible={layer.visible}")
+
 from psd_tools import PSDImage
 import os, zipfile, io
 
