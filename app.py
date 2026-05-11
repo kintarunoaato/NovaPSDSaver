@@ -1,3 +1,9 @@
+import logging, sys
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
 from flask import Flask, request, send_file, jsonify
 import os
 
