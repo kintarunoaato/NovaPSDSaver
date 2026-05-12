@@ -18,7 +18,7 @@ def upload_file():
     # Enforce tier limits
     if mode == 'visible' and size > 5 * 1024 * 1024:
         return jsonify({"error": "File exceeds 5MB limit for visible-only recovery"}), 400
-    if mode == 'force' and size > 20 * 1024 * 1024:
+    if mode == 'force' and size > 25 * 1024 * 1024:
         return jsonify({"error": "File exceeds 20MB limit for forced recovery"}), 400
 
     output_folder = '/tmp/output'
