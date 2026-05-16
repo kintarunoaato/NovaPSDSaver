@@ -1,6 +1,6 @@
 from flask import Flask, request, send_file, jsonify
 from psd_tools import PSDImage
-import os, io, zipfile
+import os, zipfile
 from psd_layer_extract import save_visible_layers
 from psd_layer_force_visible import extract_layers_force_visible
 
@@ -30,7 +30,7 @@ def upload_file():
         psd = PSDImage.open(filepath)
         saved_files = save_visible_layers(psd, '/tmp/output')
         # zip visible layers
-        zip_path = os.path.join(PROCESSED_DIR, f"{os.path.splitext(filename)[0]}_visible.zip")
+        zip_path = os.path.join(PROCESSED_DIR, f"{os.path.splitext(filename)[0]}.zip")
         with zipfile.ZipFile(zip_path, "w") as z:
             for f in saved_files:
                 z.write(f, os.path.basename(f))
@@ -38,7 +38,7 @@ def upload_file():
 
     else:  # force mode
         zip_path = extract_layers_force_visible(filepath, '/tmp/output')
-        final_zip = os.path.join(PROCESSED_DIR, f"{os.path.splitext(filename)[0]}_force.zip")
+        final_zip = os.path.join(PROCESSED_DIR, f"{os.path.splitext(filename)[0]}.zip")
         os.replace(zip_path, final_zip)
         return send_file(final_zip, as_attachment=True)
 
