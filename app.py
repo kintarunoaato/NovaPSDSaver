@@ -11,10 +11,14 @@ PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 @app.route('/upload', methods=['POST'])
-print(f"DEBUG: request.files keys: {list(request.files.keys())}")
-print(f"DEBUG: request.form: {request.form}")
-
 def upload_file():
+    # Debug incoming request
+    print(f"DEBUG: request.files keys: {list(request.files.keys())}")
+    print(f"DEBUG: request.form: {request.form}")
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
     file = request.files['file']
     mode = request.form.get('mode', 'visible')
     filename = file.filename
@@ -23,14 +27,18 @@ def upload_file():
     size = os.path.getsize(filepath)
     print(f"DEBUG: File saved at {filepath} size={size} mode={mode}")
 
+    # Enforce tier limits
     if mode == 'visible' and size > 5 * 1024 * 1024:
         return jsonify({"error": "File exceeds 5MB limit"}), 400
     if mode == 'force' and size > 50 * 1024 * 1024:
         return jsonify({"error": "File exceeds 50MB limit"}), 400
 
-    zip_path = os.path.join(PROCESSED_DIR, f"{os.path.splitext(filename)[0]}.zip")
+    # Strip extension before appending .zip
+    base_name = os.path.splitext(filename)[0]
+    zip_path = os.path.join(PROCESSED_DIR, f"{base_name}.zip")
     print(f"DEBUG: Preparing to write ZIP at {zip_path}")
 
+    # Extract layers
     if mode == 'visible':
         psd = PSDImage.open(filepath)
         files = save_visible_layers(psd)
@@ -39,6 +47,7 @@ def upload_file():
         files = extract_layers_force_visible(filepath)
         print(f"DEBUG: extract_layers_force_visible returned {len(files)} files")
 
+    # Write ZIP
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for fname, data in files:
             print(f"DEBUG: Writing {fname} ({len(data)} bytes) into ZIP")
