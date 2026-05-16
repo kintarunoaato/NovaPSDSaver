@@ -22,10 +22,9 @@ def save_visible_layer(layer, output_files, index_prefix=""):
         print(f"DEBUG: Error on {layer.name}: {e}", flush=True)
 
 def save_visible_layers(psd):
-    """
-    Return a list of (filename, bytes) for visible layers.
-    """
     output_files = []
     for i, layer in enumerate(psd):
         save_visible_layer(layer, output_files, index_prefix=f"{i}_")
+    print(f"DEBUG: save_visible_layers collected {len(output_files)} files")
     return output_files
+
