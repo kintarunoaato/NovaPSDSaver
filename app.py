@@ -11,6 +11,9 @@ PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 @app.route('/upload', methods=['POST'])
+print(f"DEBUG: request.files keys: {list(request.files.keys())}")
+print(f"DEBUG: request.form: {request.form}")
+
 def upload_file():
     file = request.files['file']
     mode = request.form.get('mode', 'visible')
