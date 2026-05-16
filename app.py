@@ -1,6 +1,6 @@
 from flask import Flask, request, send_file, jsonify
 from psd_tools import PSDImage
-import os, zipfile
+import os, zipfile, tempfile
 from psd_layer_extract import save_visible_layers
 from psd_layer_force_visible import extract_layers_force_visible
 
@@ -22,7 +22,10 @@ def upload_file():
     file = request.files['file']
     mode = request.form.get('mode', 'visible')
     filename = file.filename
-    filepath = os.path.join('/tmp', filename)
+
+    # Save into /tmp (always exists in Render)
+    tmp_dir = tempfile.gettempdir()
+    filepath = os.path.join(tmp_dir, filename)
     file.save(filepath)
     size = os.path.getsize(filepath)
     print(f"DEBUG: File saved at {filepath} size={size} mode={mode}")
