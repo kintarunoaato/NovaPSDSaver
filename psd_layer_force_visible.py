@@ -20,11 +20,9 @@ def save_layer(layer, output_files, index_prefix=""):
         print(f"DEBUG: Skipped {layer.name} due to error: {e}", flush=True)
 
 def extract_layers_force_visible(psd_path):
-    """
-    Return a list of (filename, bytes) for all layers, forcing visibility.
-    """
     psd = PSDImage.open(psd_path)
     output_files = []
     for i, layer in enumerate(psd):
         save_layer(layer, output_files, index_prefix=f"{i}_")
+    print(f"DEBUG: extract_layers_force_visible collected {len(output_files)} files")
     return output_files
