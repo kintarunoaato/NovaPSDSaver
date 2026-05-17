@@ -22,10 +22,10 @@ def upload_file():
     file = request.files['file']
     mode = request.form.get('mode', 'visible')
 
-    # Sanitize filename to strip any InfinityFree path
+    # 🔑 Change: sanitize filename to strip InfinityFree path
     filename = secure_filename(file.filename)
 
-    # Save into /tmp (always exists in Render)
+    # 🔑 Change: always save into /tmp inside Render
     filepath = os.path.join(tempfile.gettempdir(), filename)
     file.save(filepath)
     size = os.path.getsize(filepath)
