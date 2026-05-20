@@ -41,7 +41,7 @@ def upload_file():
     }
     try:
         # Replace with your actual public IP and port forwarded to sentinel.py
-        r = requests.post("http://154.243.246.172:5000/wakeup", json=payload, timeout=10)
+        r = requests.post("http://154.244.111.86:5000/wakeup", json=payload, timeout=10)
         print("DEBUG: Wakeup call sent to sentinel", r.status_code)
     except Exception as e:
         print("DEBUG: Failed to contact sentinel:", e)
