@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 from psd_layer_extract import save_visible_layers
 from psd_layer_force_visible import extract_layers_force_visible
 import smtplib
+import requests
 from email.mime.text import MIMEText
 
 app = Flask(__name__)
@@ -30,8 +31,20 @@ def send_confirmation(to, link):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    print(f"DEBUG: request.files keys: {list(request.files.keys())}")
-    print(f"DEBUG: request.form: {request.form}")
+   
+    def notify_sentinel(tier, mode, client_email, file_link):
+    payload = {
+        "tier": tier,
+        "mode": mode,
+        "email": client_email,
+        "file_link": file_link
+    }
+    try:
+        # Replace with your actual public IP and port forwarded to sentinel.py
+        r = requests.post("http://154.243.246.172:5000/wakeup", json=payload, timeout=10)
+        print("DEBUG: Wakeup call sent to sentinel", r.status_code)
+    except Exception as e:
+        print("DEBUG: Failed to contact sentinel:", e)
     
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
