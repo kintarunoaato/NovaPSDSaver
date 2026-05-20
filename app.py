@@ -9,6 +9,15 @@ from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
+# test smtp
+import socket
+try:
+    socket.create_connection(("smtp.gmail.com", 587), timeout=10)
+    print("DEBUG: SMTP port reachable")
+except Exception as e:
+    print(f"DEBUG: SMTP port unreachable: {e}")
+
+
 BASE_DIR = "/home/renderuser"
 PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
