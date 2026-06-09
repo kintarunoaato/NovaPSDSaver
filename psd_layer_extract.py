@@ -1,5 +1,6 @@
 import io
 from psd_tools import PSDImage
+from psd_layer_force_visible import extract_layers_force_visible
 
 def save_visible_layer(layer, output_files, index_prefix=""):
     try:
@@ -19,12 +20,18 @@ def save_visible_layer(layer, output_files, index_prefix=""):
             else:
                 print(f"DEBUG: Skipped hidden {layer.name}", flush=True)
     except Exception as e:
-        print(f"DEBUG: Error on {layer.name}: {e}", flush=True)
+        print(f"DEBUG: Error on {getattr(layer, 'name', 'unknown')}: {e}", flush=True)
 
-def save_visible_layers(psd):
+def save_visible_layers(filepath):
     output_files = []
-    for i, layer in enumerate(psd):
-        save_visible_layer(layer, output_files, index_prefix=f"{i}_")
-    print(f"DEBUG: save_visible_layers collected {len(output_files)} files")
+    try:
+        psd = PSDImage.open(filepath)
+        for i, layer in enumerate(psd):
+            save_visible_layer(layer, output_files, index_prefix=f"{i}_")
+        print(f"DEBUG: save_visible_layers collected {len(output_files)} files")
+    except Exception as e:
+        print(f"DEBUG: PSD parse failed: {e}, switching to force salvage")
+        # Fallback: force salvage mode
+        output_files = extract_layers_force_visible(filepath)
+        print(f"DEBUG: force salvage returned {len(output_files)} files")
     return output_files
-
