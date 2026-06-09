@@ -67,12 +67,12 @@ def upload_file():
     zip_path = os.path.join(PROCESSED_DIR, f"{base_name}.zip")
 
     if mode == 'visible':
-        psd = PSDImage.open(filepath)
-        files = save_visible_layers(psd)
-        print(f"DEBUG: save_visible_layers returned {len(files)} files")
-    else:
-        files = extract_layers_force_visible(filepath)
-        print(f"DEBUG: extract_layers_force_visible returned {len(files)} files")
+    files = save_visible_layers(filepath)
+    print(f"DEBUG: save_visible_layers returned {len(files)} files")
+else:
+    files = extract_layers_force_visible(filepath)
+    print(f"DEBUG: extract_layers_force_visible returned {len(files)} files")
+
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for fname, data in files:
