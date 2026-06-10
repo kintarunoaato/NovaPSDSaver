@@ -17,106 +17,131 @@ BASE_DIR = "/home/renderuser"
 PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
-# Full PSD header map: field name → (start, end, safe default)
-HEADER_FIELDS = {
-    "Signature":  (0, 4, b"8BPS"),
-    "Version":    (4, 6, (1).to_bytes(2, "big")),
-    "Reserved":   (6, 12, b"\x00" * 6),
-    "Channels":   (12, 14, (3).to_bytes(2, "big")),
-    "Height":     (14, 18, (1024).to_bytes(4, "big")),
-    "Width":      (18, 22, (1024).to_bytes(4, "big")),
-    "Depth":      (22, 24, (8).to_bytes(2, "big")),
-    "ColorMode":  (24, 26, (3).to_bytes(2, "big")),  # RGB
-}
+import io
+from psd_tools import PSDImage
+from PIL import Image
 
-def open_psd_raw_salvage(data, bad_field=None):
-    # Patch only the failing field in the in-memory buffer
-    if bad_field and bad_field in HEADER_FIELDS:
-        start, end, safe_val = HEADER_FIELDS[bad_field]
-        data[start:end] = safe_val
-        print(f"DEBUG: Patched {bad_field} field in header")
+# Canonical header fields with safe defaults
+HEADER_FIELDS = [
+    ("Signature", 0, 4, b"8BPS", lambda v: v == b"8BPS"),
+    ("Version", 4, 6, (1).to_bytes(2, "big"), lambda v: v in (1, 2)),
+    ("Reserved", 6, 12, b"\x00" * 6, lambda v: v == 0),
+    ("Channels", 12, 14, (3).to_bytes(2, "big"), lambda v: 1 <= v <= 56),
+    ("Height", 14, 18, (2048).to_bytes(4, "big"), lambda v: v > 0),
+    ("Width", 18, 22, (2048).to_bytes(4, "big"), lambda v: v > 0),
+    ("Depth", 22, 24, (8).to_bytes(2, "big"), lambda v: v in (1, 8, 16, 32)),
+    ("ColorMode", 24, 26, (3).to_bytes(2, "big"), lambda v: v in (0,1,2,3,4,7,8,9)),
+]
 
-    return PSDImage.open(io.BytesIO(data))
-
-def raw_salvage(filepath, mode="visible", bad_field=None):
-    try:
-        with open(filepath, "rb") as f:
-            data = bytearray(f.read())
-
-        psd = None
-        patched = set()
-
-        while True:
-            try:
-                if bad_field:
-                    psd = open_psd_raw_salvage(data, bad_field)
-                else:
-                    psd = PSDImage.open(io.BytesIO(data))
-                break  # success
-            except Exception as e:
-                msg = str(e)
-                msg_lower = msg.lower()
-                print(f"DEBUG: Parse failed: {msg}")
-                new_bad = None
-                if "colormode" in msg_lower:
-                    new_bad = "ColorMode"
-                elif "depth" in msg_lower:
-                    new_bad = "Depth"
-                elif "channels" in msg_lower:
-                    new_bad = "Channels"
-                elif "signature" in msg_lower:
-                    new_bad = "Signature"
-                elif "version" in msg_lower:
-                    new_bad = "Version"
-                elif "height" in msg_lower:
-                    new_bad = "Height"
-                elif "width" in msg_lower:
-                    new_bad = "Width"
-                elif "reserved" in msg_lower:
-                    new_bad = "Reserved"
-
-                if new_bad and new_bad not in patched:
-                    patched.add(new_bad)
-                    bad_field = new_bad
-                    continue  # retry with new patch applied to same buffer
-                else:
-                    print("DEBUG: No more salvageable header fields")
-                    psd = None
-                    break
-
-        if psd:
-            files = []
-            for i, layer in enumerate(psd):
-                try:
-                    if mode == "visible" and not layer.visible:
-                        continue
-                    layer.visible = True
-                    img = layer.topil()
-                    if img:
-                        buf = io.BytesIO()
-                        img.save(buf, format="PNG")
-                        safe_name = (layer.name or f"layer{i}").replace(" ", "_")
-                        files.append((f"{i}_{safe_name}.png", buf.getvalue()))
-                except Exception as e:
-                    print(f"DEBUG: Skipped layer due to error: {e}", flush=True)
-
-            if files:
-                return files
-    except Exception as e:
-        print(f"DEBUG: Targeted header salvage failed: {e}", flush=True)
-
-    # Binary brute-force fallback
+def open_psd_raw_salvage(filepath, bad_field=None):
+    """Sanitize header, patch bad_field + validate others."""
     with open(filepath, "rb") as f:
-        data = f.read()
-    offset = 26
-    raw_bytes = data[offset:]
+        data = bytearray(f.read())
+
+    corrupt_header = {}
+    for name, start, end, safe_val, validator in HEADER_FIELDS:
+        raw = data[start:end]
+        val = raw if name == "Signature" else int.from_bytes(raw, "big")
+        corrupt_header[name] = val
+
+        if name == bad_field:
+            print(f"DEBUG: {name} flagged, patched regardless ({val})")
+            data[start:end] = safe_val
+            continue
+
+        if not validator(val):
+            print(f"DEBUG: {name} invalid ({val}), patched to default")
+            data[start:end] = safe_val
+
+    return data, corrupt_header
+
+def universal_header():
+    """Return a 26-byte universal fallback header (2048x2048 RGB)."""
+    header = bytearray(26)
+    header[0:4] = b"8BPS"
+    header[4:6] = (1).to_bytes(2, "big")
+    header[6:12] = b"\x00" * 6
+    header[12:14] = (3).to_bytes(2, "big")
+    header[14:18] = (2048).to_bytes(4, "big")
+    header[18:22] = (2048).to_bytes(4, "big")
+    header[22:24] = (8).to_bytes(2, "big")
+    header[24:26] = (3).to_bytes(2, "big")
+    return header
+
+def parse_field_from_exception(msg):
+    """Extract field name directly from exception string."""
+    for name, _, _, _, _ in HEADER_FIELDS:
+        if name in msg:
+            return name
+    return None
+
+def raw_salvage(filepath, mode, bad_field=None):
+    """Siege loop: patch wall by wall until PSDImage accepts, else brute-force binary salvage."""
+    attempt = 0
+    files = None
+
+    while True:
+        attempt += 1
+        print(f"=== Attempt {attempt}, patching {bad_field} ===")
+
+        data, corrupt_header = open_psd_raw_salvage(filepath, bad_field)
+        with open(filepath, "r+b") as f:
+            f.write(data)
+
+        try:
+            psd = PSDImage.open(filepath)
+            print("SUCCESS: PSD parsed")
+            if mode == "visible":
+                files = save_visible_layers(psd)
+            else:
+                files = extract_layers_force_visible(psd)
+            return files
+        except Exception as e:
+            msg = str(e)
+            print(f"Wall hit: {msg}")
+            bad_field = parse_field_from_exception(msg)
+            if not bad_field:
+                print("No more salvageable fields, breaking")
+                break
+
+    # universal fallback
+    print("Applying universal 2048x2048 header fallback")
+    data = universal_header()
+    with open(filepath, "r+b") as f:
+        f.write(data)
+
     try:
-        img = Image.open(io.BytesIO(raw_bytes)).convert("RGBA")
-    except Exception:
-        img = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return [("salvage.png", buf.getvalue())]
+        psd = PSDImage.open(filepath)
+        if mode == "visible":
+            return save_visible_layers(psd)
+        else:
+            return extract_layers_force_visible(psd)
+    except:
+        # Binary brute-force salvage inside raw_salvage
+        print("Brute-forcing binary fragments...")
+        with open(filepath, "rb") as f:
+            data = f.read()
+
+        offset = 26  # skip header
+        fragments = []
+        idx = 0
+        step = 4096
+
+        while offset < len(data):
+            chunk = data[offset:offset+step]
+            try:
+                img = Image.open(io.BytesIO(chunk)).convert("RGBA")
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                fragments.append((f"fragment_{idx}.png", buf.getvalue()))
+                print(f"DEBUG: salvaged fragment {idx} at offset {offset}")
+                idx += 1
+            except Exception:
+                pass
+            offset += step
+
+        return fragments
+
 
 
 
