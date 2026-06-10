@@ -19,13 +19,35 @@ os.makedirs(PROCESSED_DIR, exist_ok=True)
 from PIL import Image
 import io
 
-def raw_salvage(filepath):
+import io
+from psd_tools import PSDImage
+
+def open_psd_raw_salvage(filepath):
+    with open(filepath, "rb") as f:
+        data = bytearray(f.read())
+
+    # --- Sanitize the 26-byte header ---
+    data[0:4] = b'8BPS'              # Signature
+    data[4:6] = (1).to_bytes(2, "big")  # Version
+    data[6:12] = b'\x00' * 6         # Reserved
+    data[12:14] = (3).to_bytes(2, "big") # Channels
+    data[14:18] = (1024).to_bytes(4, "big") # Height default
+    data[18:22] = (1024).to_bytes(4, "big") # Width default
+    data[22:24] = (8).to_bytes(2, "big")    # Depth
+    data[24:26] = (3).to_bytes(2, "big")    # Color mode RGB
+
+    return PSDImage.open(io.BytesIO(data))
+
+def raw_salvage(filepath, mode="visible"):
     try:
-        # First attempt: sanitize header and parse with psd_tools
-        psd = open_psd_raw_salvage(filepath)  # the sanitizer routine
+        psd = open_psd_raw_salvage(filepath)
         files = []
         for i, layer in enumerate(psd):
             try:
+                # Free tier: only visible layers
+                if mode == "visible" and not layer.visible:
+                    continue
+                # Paid/force tier: salvage everything
                 layer.visible = True
                 img = layer.topil()
                 if img:
@@ -40,7 +62,7 @@ def raw_salvage(filepath):
     except Exception as e:
         print(f"DEBUG: Sanitized header salvage failed: {e}", flush=True)
 
-    # Second attempt: binary brute-force
+    # Binary brute-force fallback
     with open(filepath, "rb") as f:
         data = f.read()
     offset = 26
