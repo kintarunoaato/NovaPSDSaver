@@ -28,61 +28,61 @@ HEADER_FIELDS = {
     "ColorMode":  (24, 26, (3).to_bytes(2, "big")),  # RGB
 }
 
-def open_psd_raw_salvage(filepath, patched_fields):
+def open_psd_raw_salvage(filepath, bad_field=None):
     with open(filepath, "rb") as f:
         data = bytearray(f.read())
 
-    # Apply all patches accumulated so far
-    for bad_field in patched_fields:
-        if bad_field in HEADER_FIELDS:
-            start, end, safe_val = HEADER_FIELDS[bad_field]
-            data[start:end] = safe_val
-            print(f"DEBUG: Patched {bad_field} field in header")
+    # Patch only the failing field
+    if bad_field and bad_field in HEADER_FIELDS:
+        start, end, safe_val = HEADER_FIELDS[bad_field]
+        data[start:end] = safe_val
+        print(f"DEBUG: Patched {bad_field} field in header")
 
     return PSDImage.open(io.BytesIO(data))
 
-def raw_salvage(filepath, mode="visible"):
-    patched_fields = set()
-    psd = None
-
-    while True:
-        try:
-            if patched_fields:
-                psd = open_psd_raw_salvage(filepath, patched_fields)
-            else:
-                psd = PSDImage.open(filepath)
-            break  # success
-        except Exception as e:
-            msg = str(e)
-            print(f"DEBUG: Parse failed: {msg}")
-            bad_field = None
-            # detect which field is invalid from error message
-            if "ColorMode" in msg:
-                bad_field = "ColorMode"
-            elif "Depth" in msg:
-                bad_field = "Depth"
-            elif "Channels" in msg:
-                bad_field = "Channels"
-            elif "Signature" in msg:
-                bad_field = "Signature"
-            elif "Version" in msg:
-                bad_field = "Version"
-            elif "Height" in msg:
-                bad_field = "Height"
-            elif "Width" in msg:
-                bad_field = "Width"
-            elif "Reserved" in msg:
-                bad_field = "Reserved"
-
-            if bad_field and bad_field not in patched_fields:
-                patched_fields.add(bad_field)
-                continue  # retry with patch
-            else:
-                print("DEBUG: No more salvageable header fields")
-                psd = None
-                break
-
+def raw_salvage(filepath, mode="visible", bad_field=None):
     try:
+        psd = None
+        patched = set()
+
+        while True:
+            try:
+                if bad_field:
+                    psd = open_psd_raw_salvage(filepath, bad_field)
+                else:
+                    psd = PSDImage.open(filepath)
+                break  # success
+            except Exception as e:
+                msg = str(e)
+                print(f"DEBUG: Parse failed: {msg}")
+                new_bad = None
+                # detect which field is invalid from error message
+                if "ColorMode" in msg:
+                    new_bad = "ColorMode"
+                elif "Depth" in msg:
+                    new_bad = "Depth"
+                elif "Channels" in msg:
+                    new_bad = "Channels"
+                elif "Signature" in msg:
+                    new_bad = "Signature"
+                elif "Version" in msg:
+                    new_bad = "Version"
+                elif "Height" in msg:
+                    new_bad = "Height"
+                elif "Width" in msg:
+                    new_bad = "Width"
+                elif "Reserved" in msg:
+                    new_bad = "Reserved"
+
+                if new_bad and new_bad not in patched:
+                    bad_field = new_bad
+                    patched.add(new_bad)
+                    continue  # retry with new patch
+                else:
+                    print("DEBUG: No more salvageable header fields")
+                    psd = None
+                    break
+
         if psd:
             files = []
             for i, layer in enumerate(psd):
@@ -116,6 +116,7 @@ def raw_salvage(filepath, mode="visible"):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return [("salvage.png", buf.getvalue())]
+
 
 
 # --- Flask route ---
