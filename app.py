@@ -7,7 +7,8 @@ from psd_layer_force_visible import extract_layers_force_visible
 import smtplib
 import requests
 from email.mime.text import MIMEText
-from PIL import Image import struct
+from PIL import Image 
+import struct
 
 app = Flask(__name__)
 
@@ -15,55 +16,31 @@ BASE_DIR = "/home/renderuser"
 PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
-def parse_layers(data):
-    """
-    Minimal PSD layer parser.
-    Reads header and returns a fake single-layer entry.
-    Later you can expand this to walk the layer/mask info section.
-    """
-    # PSD header is 26 bytes: signature, version, channels, height, width, depth, color mode
-    header = struct.unpack(">4sH6I", data[:26])
-    signature = header[0]
-    if signature != b'8BPS':
-        raise ValueError("Not a valid PSD file")
-
-    channels = header[2]
-    height   = header[3]
-    width    = header[4]
-    depth    = header[5]
-    color    = header[6]
-
-    # For now, just return one "layer" with metadata
-    return [{
-        "width": width,
-        "height": height,
-        "channels": channels,
-        "depth": depth,
-        "color_mode": color,
-        "raw": data
-    }]
-
-def decode_layer(layer):
-    """
-    Minimal decode: create a blank RGBA image sized to PSD header.
-    Replace with actual channel decompression logic later.
-    """
-    w = layer["width"]
-    h = layer["height"]
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))  # transparent placeholder
-    return img
+from PIL import Image
+import io
 
 def raw_salvage(filepath):
     with open(filepath, "rb") as f:
         data = f.read()
-    layers = parse_layers(data)
-    files = []
-    for i, layer in enumerate(layers):
-        img = decode_layer(layer)
-        filename = f"layer_{i+1}.png"
-        img.save(filename)
-        files.append(filename)
-    return files
+
+    # Skip the PSD header (first 26 bytes) and resource blocks.
+    # This is a brute-force hack: assume the rest is composite image data.
+    # In corrupted PSDs, this may still contain usable pixel info.
+    offset = 26
+    raw_bytes = data[offset:]
+
+    try:
+        # Try to interpret the remaining bytes as an image
+        img = Image.open(io.BytesIO(raw_bytes))
+        img = img.convert("RGBA")
+    except Exception:
+        # Fallback: just produce a blank placeholder
+        img = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+
+    filename = "salvage.png"
+    img.save(filename)
+    return [filename]
+
 
 
 
