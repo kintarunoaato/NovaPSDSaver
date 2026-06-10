@@ -15,14 +15,18 @@ PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 def raw_salvage(filepath):
-    try:
-        with open(filepath, "rb") as f:
-            data = f.read()
-        # crude fallback: dump raw bytes into one file
-        return [("salvage.bin", data)]
-    except Exception as e:
-        print(f"DEBUG: Raw salvage failed: {e}")
-        return []
+    with open(filepath, "rb") as f:
+        data = f.read()
+    # parse header offsets manually
+    layers = parse_layers(data)  # custom function
+    files = []
+    for i, layer in enumerate(layers):
+        img = decode_layer(layer)  # decompress + convert to RGBA
+        filename = f"layer_{i+1}.png"
+        img.save(filename)
+        files.append(filename)
+    return files
+
 
 def send_confirmation(to, link):
     msg = MIMEText(f"Your file has been processed. Download link: {link}")
