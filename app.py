@@ -100,16 +100,23 @@ def upload_file():
     zip_path = os.path.join(PROCESSED_DIR, f"{base_name}.zip")
 
     # ✅ always-on salvage logic
-    if mode == 'visible':
+if mode == 'visible':
+    try:
         files = save_visible_layers(filepath)
-        if not files:
-            print("DEBUG: visible mode produced no files, running raw salvage")
-            files = raw_salvage(filepath, "visible")
-    else:
+    except Exception as e:
+        print(f"DEBUG: save_visible_layers crashed: {e}, running raw salvage")
+        files = None
+    if not files:
+        files = raw_salvage(filepath, "visible")
+else:
+    try:
         files = extract_layers_force_visible(filepath)
-        if not files:
-            print("DEBUG: force mode produced no files, running raw salvage")
-            files = raw_salvage(filepath, "force")
+    except Exception as e:
+        print(f"DEBUG: extract_layers_force_visible crashed: {e}, running raw salvage")
+        files = None
+    if not files:
+        files = raw_salvage(filepath, "force")
+
 
     # failure flag if still empty
     if not files:
