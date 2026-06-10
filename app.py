@@ -106,11 +106,11 @@ def upload_file():
 
     public_link = f"https://novapsdsaver.gt.tc/{mode}/processed/{os.path.basename(zip_path)}"
 
-    if client_email:
-        send_confirmation(client_email, public_link)
-        notify_sentinel("free", mode, client_email, public_link)
-    else:
-        print("DEBUG: No client email provided, skipping confirmation")
+    #if client_email:
+        #send_confirmation(client_email, public_link)
+        #notify_sentinel("free", mode, client_email, public_link)
+    #else:
+        #print("DEBUG: No client email provided, skipping confirmation")
 
     return send_file(zip_path, as_attachment=True)
 
