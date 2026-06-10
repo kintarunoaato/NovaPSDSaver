@@ -55,23 +55,24 @@ def raw_salvage(filepath, mode="visible", bad_field=None):
                 break  # success
             except Exception as e:
                 msg = str(e)
+                msg_lower = msg.lower()
                 print(f"DEBUG: Parse failed: {msg}")
                 new_bad = None
-                if "ColorMode" in msg:
+                if "colormode" in msg_lower:
                     new_bad = "ColorMode"
-                elif "Depth" in msg:
+                elif "depth" in msg_lower:
                     new_bad = "Depth"
-                elif "Channels" in msg:
+                elif "channels" in msg_lower:
                     new_bad = "Channels"
-                elif "Signature" in msg:
+                elif "signature" in msg_lower:
                     new_bad = "Signature"
-                elif "Version" in msg:
+                elif "version" in msg_lower:
                     new_bad = "Version"
-                elif "Height" in msg:
+                elif "height" in msg_lower:
                     new_bad = "Height"
-                elif "Width" in msg:
+                elif "width" in msg_lower:
                     new_bad = "Width"
-                elif "Reserved" in msg:
+                elif "reserved" in msg_lower:
                     new_bad = "Reserved"
 
                 if new_bad and new_bad not in patched:
@@ -116,6 +117,7 @@ def raw_salvage(filepath, mode="visible", bad_field=None):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return [("salvage.png", buf.getvalue())]
+
 
 
 
