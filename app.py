@@ -67,7 +67,16 @@ def universal_header():
     header[22:24] = (8).to_bytes(2, "big")
     header[24:26] = (3).to_bytes(2, "big")
     return header
-
+    
+def apply_sanitized_header(filepath, sanitized_header):
+    with open(filepath, "rb") as f:
+        data = f.read()
+    new_data = sanitized_header + data[26:]
+    tmp_path = filepath + ".sanitized"
+    with open(tmp_path, "wb") as f:
+        f.write(new_data)
+    return tmp_path
+    
 def parse_field_from_exception(msg):
     """Extract field name directly from exception string."""
     for name, _, _, _, _ in HEADER_FIELDS:
@@ -76,7 +85,6 @@ def parse_field_from_exception(msg):
     return None
 
 def raw_salvage(filepath, mode, bad_field=None):
-    """Siege loop: patch wall by wall until PSDImage accepts, else brute-force binary salvage."""
     attempt = 0
     files = None
 
@@ -84,12 +92,11 @@ def raw_salvage(filepath, mode, bad_field=None):
         attempt += 1
         print(f"=== Attempt {attempt}, patching {bad_field} ===")
 
-        data, corrupt_header = open_psd_raw_salvage(filepath, bad_field)
-        with open(filepath, "r+b") as f:
-            f.write(data)
+        sanitized, corrupt_header = open_psd_raw_salvage(filepath, bad_field)
+        tmp_path = apply_sanitized_header(filepath, sanitized)
 
         try:
-            psd = PSDImage.open(filepath)
+            psd = PSDImage.open(tmp_path)
             print("SUCCESS: PSD parsed")
             if mode == "visible":
                 files = save_visible_layers(psd)
@@ -104,25 +111,21 @@ def raw_salvage(filepath, mode, bad_field=None):
                 print("No more salvageable fields, breaking")
                 break
 
-    # universal fallback
     print("Applying universal 2048x2048 header fallback")
-    data = universal_header()
-    with open(filepath, "r+b") as f:
-        f.write(data)
+    tmp_path = apply_sanitized_header(filepath, universal_header())
 
     try:
-        psd = PSDImage.open(filepath)
+        psd = PSDImage.open(tmp_path)
         if mode == "visible":
             return save_visible_layers(psd)
         else:
             return extract_layers_force_visible(psd)
     except:
-        # Binary brute-force salvage inside raw_salvage
         print("Brute-forcing binary fragments...")
         with open(filepath, "rb") as f:
             data = f.read()
 
-        offset = 26  # skip header
+        offset = 26
         fragments = []
         idx = 0
         step = 4096
