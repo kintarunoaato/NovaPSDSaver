@@ -104,12 +104,12 @@ def upload_file():
         files = save_visible_layers(filepath)
         if not files:
             print("DEBUG: visible mode produced no files, running raw salvage")
-            files = raw_salvage(filepath)
+            files = raw_salvage(filepath, "visible")
     else:
         files = extract_layers_force_visible(filepath)
         if not files:
             print("DEBUG: force mode produced no files, running raw salvage")
-            files = raw_salvage(filepath)
+            files = raw_salvage(filepath, "force")
 
     # failure flag if still empty
     if not files:
