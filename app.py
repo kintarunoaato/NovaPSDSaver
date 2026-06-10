@@ -1,10 +1,11 @@
 from flask import Flask, request, send_file, jsonify
 from psd_tools import PSDImage
-import os, zipfile, tempfile
+import io, os, zipfile, tempfile
 from werkzeug.utils import secure_filename
 from psd_layer_extract import save_visible_layers
 from psd_layer_force_visible import extract_layers_force_visible
 import smtplib
+from psd_tools import PSDImage
 import requests
 from email.mime.text import MIMEText
 from PIL import Image 
