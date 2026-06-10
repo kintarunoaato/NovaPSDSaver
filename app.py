@@ -46,43 +46,42 @@ def raw_salvage(filepath, mode="visible", bad_field=None):
         psd = None
         patched = set()
 
-while True:
-    try:
-        if bad_field:
-            psd = open_psd_raw_salvage(filepath, bad_field)
-        else:
-            psd = PSDImage.open(filepath)
-        break  # success
-    except Exception as e:
-        msg = str(e)
-        print(f"DEBUG: Parse failed: {msg}")
-        new_bad = None
-        if "ColorMode" in msg:
-            new_bad = "ColorMode"
-        elif "Depth" in msg:
-            new_bad = "Depth"
-        elif "Channels" in msg:
-            new_bad = "Channels"
-        elif "Signature" in msg:
-            new_bad = "Signature"
-        elif "Version" in msg:
-            new_bad = "Version"
-        elif "Height" in msg:
-            new_bad = "Height"
-        elif "Width" in msg:
-            new_bad = "Width"
-        elif "Reserved" in msg:
-            new_bad = "Reserved"
+        while True:
+            try:
+                if bad_field:
+                    psd = open_psd_raw_salvage(filepath, bad_field)
+                else:
+                    psd = PSDImage.open(filepath)
+                break  # success
+            except Exception as e:
+                msg = str(e)
+                print(f"DEBUG: Parse failed: {msg}")
+                new_bad = None
+                if "ColorMode" in msg:
+                    new_bad = "ColorMode"
+                elif "Depth" in msg:
+                    new_bad = "Depth"
+                elif "Channels" in msg:
+                    new_bad = "Channels"
+                elif "Signature" in msg:
+                    new_bad = "Signature"
+                elif "Version" in msg:
+                    new_bad = "Version"
+                elif "Height" in msg:
+                    new_bad = "Height"
+                elif "Width" in msg:
+                    new_bad = "Width"
+                elif "Reserved" in msg:
+                    new_bad = "Reserved"
 
-        if new_bad and new_bad not in patched:
-            patched.add(new_bad)
-            bad_field = new_bad
-            continue  # retry with new patch
-        else:
-            print("DEBUG: No more salvageable header fields")
-            psd = None
-            break
-
+                if new_bad and new_bad not in patched:
+                    patched.add(new_bad)
+                    bad_field = new_bad
+                    continue  # retry with new patch
+                else:
+                    print("DEBUG: No more salvageable header fields")
+                    psd = None
+                    break
 
         if psd:
             files = []
@@ -117,6 +116,7 @@ while True:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return [("salvage.png", buf.getvalue())]
+
 
 
 
