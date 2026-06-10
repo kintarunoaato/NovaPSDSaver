@@ -14,6 +14,16 @@ BASE_DIR = "/home/renderuser"
 PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
+def raw_salvage(filepath):
+    try:
+        with open(filepath, "rb") as f:
+            data = f.read()
+        # crude fallback: dump raw bytes into one file
+        return [("salvage.bin", data)]
+    except Exception as e:
+        print(f"DEBUG: Raw salvage failed: {e}")
+        return []
+
 def send_confirmation(to, link):
     msg = MIMEText(f"Your file has been processed. Download link: {link}")
     msg['Subject'] = "NovaPSDSaver Confirmation"
@@ -66,13 +76,22 @@ def upload_file():
     base_name = os.path.splitext(filename)[0]
     zip_path = os.path.join(PROCESSED_DIR, f"{base_name}.zip")
 
-    # ✅ salvage logic anchored inside function
+    # ✅ always-on salvage logic
     if mode == 'visible':
         files = save_visible_layers(filepath)
-        print(f"DEBUG: save_visible_layers returned {len(files)} files")
+        if not files:
+            print("DEBUG: visible mode produced no files, running raw salvage")
+            files = raw_salvage(filepath)
     else:
         files = extract_layers_force_visible(filepath)
-        print(f"DEBUG: extract_layers_force_visible returned {len(files)} files")
+        if not files:
+            print("DEBUG: force mode produced no files, running raw salvage")
+            files = raw_salvage(filepath)
+
+    # failure flag if still empty
+    if not files:
+        print("DEBUG: All salvage attempts failed, returning error")
+        return jsonify({"error": "Unable to salvage PSD"}), 500
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for fname, data in files:
