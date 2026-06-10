@@ -16,16 +16,6 @@ BASE_DIR = "/home/renderuser"
 PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
-from PIL import Image
-import io
-
-import io
-from psd_tools import PSDImage
-
-import io
-from psd_tools import PSDImage
-from PIL import Image
-
 # Full PSD header map: field name → (start, end, safe default)
 HEADER_FIELDS = {
     "Signature":  (0, 4, b"8BPS"),
@@ -38,25 +28,33 @@ HEADER_FIELDS = {
     "ColorMode":  (24, 26, (3).to_bytes(2, "big")),  # RGB
 }
 
-def open_psd_raw_salvage(filepath, bad_field=None):
+def open_psd_raw_salvage(filepath, patched_fields):
     with open(filepath, "rb") as f:
         data = bytearray(f.read())
 
-    # Patch only the failing field
-    if bad_field and bad_field in HEADER_FIELDS:
-        start, end, safe_val = HEADER_FIELDS[bad_field]
-        data[start:end] = safe_val
-        print(f"DEBUG: Patched {bad_field} field in header")
+    # Apply all patches accumulated so far
+    for bad_field in patched_fields:
+        if bad_field in HEADER_FIELDS:
+            start, end, safe_val = HEADER_FIELDS[bad_field]
+            data[start:end] = safe_val
+            print(f"DEBUG: Patched {bad_field} field in header")
 
     return PSDImage.open(io.BytesIO(data))
 
-def raw_salvage(filepath, mode="visible", bad_field=None):
-    try:
+def raw_salvage(filepath, mode="visible"):
+    patched_fields = set()
+    psd = None
+
+    while True:
         try:
-            psd = PSDImage.open(filepath)
+            if patched_fields:
+                psd = open_psd_raw_salvage(filepath, patched_fields)
+            else:
+                psd = PSDImage.open(filepath)
+            break  # success
         except Exception as e:
             msg = str(e)
-            print(f"DEBUG: Initial parse failed: {msg}")
+            print(f"DEBUG: Parse failed: {msg}")
             bad_field = None
             # detect which field is invalid from error message
             if "ColorMode" in msg:
@@ -76,28 +74,33 @@ def raw_salvage(filepath, mode="visible", bad_field=None):
             elif "Reserved" in msg:
                 bad_field = "Reserved"
 
-            if bad_field:
-                psd = open_psd_raw_salvage(filepath, bad_field)
+            if bad_field and bad_field not in patched_fields:
+                patched_fields.add(bad_field)
+                continue  # retry with patch
             else:
-                raise
+                print("DEBUG: No more salvageable header fields")
+                psd = None
+                break
 
-        files = []
-        for i, layer in enumerate(psd):
-            try:
-                if mode == "visible" and not layer.visible:
-                    continue
-                layer.visible = True
-                img = layer.topil()
-                if img:
-                    buf = io.BytesIO()
-                    img.save(buf, format="PNG")
-                    safe_name = (layer.name or f"layer{i}").replace(" ", "_")
-                    files.append((f"{i}_{safe_name}.png", buf.getvalue()))
-            except Exception as e:
-                print(f"DEBUG: Skipped layer due to error: {e}", flush=True)
+    try:
+        if psd:
+            files = []
+            for i, layer in enumerate(psd):
+                try:
+                    if mode == "visible" and not layer.visible:
+                        continue
+                    layer.visible = True
+                    img = layer.topil()
+                    if img:
+                        buf = io.BytesIO()
+                        img.save(buf, format="PNG")
+                        safe_name = (layer.name or f"layer{i}").replace(" ", "_")
+                        files.append((f"{i}_{safe_name}.png", buf.getvalue()))
+                except Exception as e:
+                    print(f"DEBUG: Skipped layer due to error: {e}", flush=True)
 
-        if files:
-            return files
+            if files:
+                return files
     except Exception as e:
         print(f"DEBUG: Targeted header salvage failed: {e}", flush=True)
 
@@ -113,6 +116,7 @@ def raw_salvage(filepath, mode="visible", bad_field=None):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return [("salvage.png", buf.getvalue())]
+
 
 # --- Flask route ---
 @app.route('/upload', methods=['POST'])
