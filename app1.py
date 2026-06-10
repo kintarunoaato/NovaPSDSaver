@@ -13,7 +13,33 @@ from psd_layer_force_visible import extract_layers_force_visible
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 35 * 1024 * 1024  # 35 MB cap
+def send_confirmation(to, link):
+    msg = MIMEText(f"Your file has been processed. Download link: {link}")
+    msg['Subject'] = "NovaPSDSaver Confirmation"
+    msg['From'] = "NovaPSDSaver@gmail.com"
+    msg['To'] = to
 
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login("NovaPSDSaver@gmail.com", os.environ.get("GMAIL_APP_PASSWORD"))
+            server.sendmail("NovaPSDSaver@gmail.com", [to, "NovaPSDSaver@gmail.com"], msg.as_string())
+            print(f"DEBUG: SMTP email sent to {to} and archive")
+    except Exception as e:
+        print(f"DEBUG: SMTP email failed. Error: {e}")
+
+def notify_sentinel(tier, mode, client_email, file_link):
+    payload = {
+        "tier": tier,
+        "mode": mode,
+        "email": client_email,
+        "link": file_link
+    }
+    try:
+        r = requests.post("http://154.244.111.86:5000/wakeup", json=payload, timeout=10)
+        print("DEBUG: Wakeup call sent to sentinel", r.status_code)
+    except Exception as e:
+        print("DEBUG: Failed to contact sentinel:", e)
 @app.route("/")
 def index():
     return "NovaPSDSaver backend is alive!"
