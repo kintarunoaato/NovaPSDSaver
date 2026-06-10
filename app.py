@@ -50,7 +50,7 @@ def open_psd_raw_salvage(filepath, bad_field=None):
 
     return PSDImage.open(io.BytesIO(data))
 
-def raw_salvage(filepath, mode="visible"):
+def raw_salvage(filepath, mode="visible", bad_field=None):
     try:
         try:
             psd = PSDImage.open(filepath)
