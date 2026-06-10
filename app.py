@@ -66,13 +66,13 @@ def upload_file():
     base_name = os.path.splitext(filename)[0]
     zip_path = os.path.join(PROCESSED_DIR, f"{base_name}.zip")
 
+    # ✅ salvage logic anchored inside function
     if mode == 'visible':
-    files = save_visible_layers(filepath)
-    print(f"DEBUG: save_visible_layers returned {len(files)} files")
-else:
-    files = extract_layers_force_visible(filepath)
-    print(f"DEBUG: extract_layers_force_visible returned {len(files)} files")
-
+        files = save_visible_layers(filepath)
+        print(f"DEBUG: save_visible_layers returned {len(files)} files")
+    else:
+        files = extract_layers_force_visible(filepath)
+        print(f"DEBUG: extract_layers_force_visible returned {len(files)} files")
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for fname, data in files:
@@ -81,21 +81,15 @@ else:
 
     print(f"DEBUG: Final ZIP saved at {zip_path} size={os.path.getsize(zip_path)}")
 
-    # 🔑 Build public link
     public_link = f"https://novapsdsaver.gt.tc/{mode}/processed/{os.path.basename(zip_path)}"
 
-    # 🔑 Send confirmation email
     if client_email:
         send_confirmation(client_email, public_link)
+        notify_sentinel("free", mode, client_email, public_link)
     else:
         print("DEBUG: No client email provided, skipping confirmation")
-
-    # 🔑 Notify sentinel
-    if client_email:
-        notify_sentinel("free", mode, client_email, public_link)
 
     return send_file(zip_path, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
