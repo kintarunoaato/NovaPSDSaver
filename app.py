@@ -29,11 +29,8 @@ HEADER_FIELDS = {
     "ColorMode":  (24, 26, (3).to_bytes(2, "big")),  # RGB
 }
 
-def open_psd_raw_salvage(filepath, bad_field=None):
-    with open(filepath, "rb") as f:
-        data = bytearray(f.read())
-
-    # Patch only the failing field
+def open_psd_raw_salvage(data, bad_field=None):
+    # Patch only the failing field in the in-memory buffer
     if bad_field and bad_field in HEADER_FIELDS:
         start, end, safe_val = HEADER_FIELDS[bad_field]
         data[start:end] = safe_val
@@ -43,15 +40,18 @@ def open_psd_raw_salvage(filepath, bad_field=None):
 
 def raw_salvage(filepath, mode="visible", bad_field=None):
     try:
+        with open(filepath, "rb") as f:
+            data = bytearray(f.read())
+
         psd = None
         patched = set()
 
         while True:
             try:
                 if bad_field:
-                    psd = open_psd_raw_salvage(filepath, bad_field)
+                    psd = open_psd_raw_salvage(data, bad_field)
                 else:
-                    psd = PSDImage.open(filepath)
+                    psd = PSDImage.open(io.BytesIO(data))
                 break  # success
             except Exception as e:
                 msg = str(e)
@@ -78,7 +78,7 @@ def raw_salvage(filepath, mode="visible", bad_field=None):
                 if new_bad and new_bad not in patched:
                     patched.add(new_bad)
                     bad_field = new_bad
-                    continue  # retry with new patch
+                    continue  # retry with new patch applied to same buffer
                 else:
                     print("DEBUG: No more salvageable header fields")
                     psd = None
@@ -117,8 +117,6 @@ def raw_salvage(filepath, mode="visible", bad_field=None):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return [("salvage.png", buf.getvalue())]
-
-
 
 
 
