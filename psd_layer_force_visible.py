@@ -37,6 +37,5 @@ def extract_layers_force_visible(filepath):
             print(f"DEBUG: salvage-force collected {len(output_files)} files")
         except Exception as e2:
             print(f"DEBUG: salvage-force also failed: {e2}")
-            # Return empty list so caller can trigger raw_salvage
-            return None
+            raise  # let caller catch and run raw_salvage
     return output_files
