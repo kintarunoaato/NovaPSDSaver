@@ -22,45 +22,84 @@ import io
 import io
 from psd_tools import PSDImage
 
-def open_psd_raw_salvage(filepath):
+import io
+from psd_tools import PSDImage
+from PIL import Image
+
+# Full PSD header map: field name → (start, end, safe default)
+HEADER_FIELDS = {
+    "Signature":  (0, 4, b"8BPS"),
+    "Version":    (4, 6, (1).to_bytes(2, "big")),
+    "Reserved":   (6, 12, b"\x00" * 6),
+    "Channels":   (12, 14, (3).to_bytes(2, "big")),
+    "Height":     (14, 18, (1024).to_bytes(4, "big")),
+    "Width":      (18, 22, (1024).to_bytes(4, "big")),
+    "Depth":      (22, 24, (8).to_bytes(2, "big")),
+    "ColorMode":  (24, 26, (3).to_bytes(2, "big")),  # RGB
+}
+
+def open_psd_raw_salvage(filepath, bad_field=None):
     with open(filepath, "rb") as f:
         data = bytearray(f.read())
 
-    # --- Sanitize the 26-byte header ---
-    data[0:4] = b'8BPS'              # Signature
-    data[4:6] = (1).to_bytes(2, "big")  # Version
-    data[6:12] = b'\x00' * 6         # Reserved
-    data[12:14] = (3).to_bytes(2, "big") # Channels
-    data[14:18] = (1024).to_bytes(4, "big") # Height default
-    data[18:22] = (1024).to_bytes(4, "big") # Width default
-    data[22:24] = (8).to_bytes(2, "big")    # Depth
-    data[24:26] = (3).to_bytes(2, "big")    # Color mode RGB
+    # Patch only the failing field
+    if bad_field and bad_field in HEADER_FIELDS:
+        start, end, safe_val = HEADER_FIELDS[bad_field]
+        data[start:end] = safe_val
+        print(f"DEBUG: Patched {bad_field} field in header")
 
     return PSDImage.open(io.BytesIO(data))
 
 def raw_salvage(filepath, mode="visible"):
     try:
-        psd = open_psd_raw_salvage(filepath)
+        try:
+            psd = PSDImage.open(filepath)
+        except Exception as e:
+            msg = str(e)
+            print(f"DEBUG: Initial parse failed: {msg}")
+            bad_field = None
+            # detect which field is invalid from error message
+            if "ColorMode" in msg:
+                bad_field = "ColorMode"
+            elif "Depth" in msg:
+                bad_field = "Depth"
+            elif "Channels" in msg:
+                bad_field = "Channels"
+            elif "Signature" in msg:
+                bad_field = "Signature"
+            elif "Version" in msg:
+                bad_field = "Version"
+            elif "Height" in msg:
+                bad_field = "Height"
+            elif "Width" in msg:
+                bad_field = "Width"
+            elif "Reserved" in msg:
+                bad_field = "Reserved"
+
+            if bad_field:
+                psd = open_psd_raw_salvage(filepath, bad_field)
+            else:
+                raise
+
         files = []
         for i, layer in enumerate(psd):
             try:
-                # Free tier: only visible layers
                 if mode == "visible" and not layer.visible:
                     continue
-                # Paid/force tier: salvage everything
                 layer.visible = True
                 img = layer.topil()
                 if img:
                     buf = io.BytesIO()
                     img.save(buf, format="PNG")
-                    safe_name = layer.name.replace(" ", "_") or f"layer{i}"
+                    safe_name = (layer.name or f"layer{i}").replace(" ", "_")
                     files.append((f"{i}_{safe_name}.png", buf.getvalue()))
             except Exception as e:
                 print(f"DEBUG: Skipped layer due to error: {e}", flush=True)
+
         if files:
             return files
     except Exception as e:
-        print(f"DEBUG: Sanitized header salvage failed: {e}", flush=True)
+        print(f"DEBUG: Targeted header salvage failed: {e}", flush=True)
 
     # Binary brute-force fallback
     with open(filepath, "rb") as f:
@@ -74,6 +113,7 @@ def raw_salvage(filepath, mode="visible"):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return [("salvage.png", buf.getvalue())]
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
