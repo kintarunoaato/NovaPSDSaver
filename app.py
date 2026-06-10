@@ -7,6 +7,7 @@ from psd_layer_force_visible import extract_layers_force_visible
 import smtplib
 import requests
 from email.mime.text import MIMEText
+from PIL import Image import struct
 
 app = Flask(__name__)
 
