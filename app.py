@@ -114,7 +114,7 @@ def raw_salvage(filepath, mode="visible"):
     img.save(buf, format="PNG")
     return [("salvage.png", buf.getvalue())]
 
-
+# --- Flask route ---
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -139,29 +139,32 @@ def upload_file():
     base_name = os.path.splitext(filename)[0]
     zip_path = os.path.join(PROCESSED_DIR, f"{base_name}.zip")
 
+    files, bad_field = None, None
+
     # ✅ always-on salvage logic
     if mode == 'visible':
-        try:
-            files = save_visible_layers(filepath)
-        except Exception as e:
-            print(f"DEBUG: save_visible_layers crashed: {e}, running raw salvage")
-            files = None
-        if not files:
-            files = raw_salvage(filepath, "visible")
+        result = save_visible_layers(filepath)
+        if isinstance(result, dict):
+            bad_field = result.get("bad_field")
+        else:
+            files = result
     else:
-        try:
-            files = extract_layers_force_visible(filepath)
-        except Exception as e:
-            print(f"DEBUG: extract_layers_force_visible crashed: {e}, running raw salvage")
-            files = None
-        if not files:
-            files = raw_salvage(filepath, "force")
+        result = extract_layers_force_visible(filepath)
+        if isinstance(result, dict):
+            bad_field = result.get("bad_field")
+        else:
+            files = result
+
+    # targeted salvage if helpers forwarded bad_field
+    if not files:
+        files = raw_salvage(filepath, mode, bad_field)
 
     # failure flag if still empty
     if not files:
         print("DEBUG: All salvage attempts failed, returning error")
         return jsonify({"error": "Unable to salvage PSD"}), 500
 
+    # write ZIP
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for fname, data in files:
             print(f"DEBUG: Writing {fname} ({len(data)} bytes) into ZIP")
@@ -171,11 +174,12 @@ def upload_file():
 
     public_link = f"https://novapsdsaver.gt.tc/{mode}/processed/{os.path.basename(zip_path)}"
 
-    #if client_email:
-        #send_confirmation(client_email, public_link)
-        #notify_sentinel("free", mode, client_email, public_link)
-    #else:
-        #print("DEBUG: No client email provided, skipping confirmation")
+    # optional email notifications (disabled for now)
+    # if client_email:
+    #     send_confirmation(client_email, public_link)
+    #     notify_sentinel("free", mode, client_email, public_link)
+    # else:
+    #     print("DEBUG: No client email provided, skipping confirmation")
 
     return send_file(zip_path, as_attachment=True)
 
