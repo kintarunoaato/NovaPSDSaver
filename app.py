@@ -100,23 +100,22 @@ def upload_file():
     zip_path = os.path.join(PROCESSED_DIR, f"{base_name}.zip")
 
     # ✅ always-on salvage logic
-if mode == 'visible':
-    try:
-        files = save_visible_layers(filepath)
-    except Exception as e:
-        print(f"DEBUG: save_visible_layers crashed: {e}, running raw salvage")
-        files = None
-    if not files:
-        files = raw_salvage(filepath, "visible")
-else:
-    try:
-        files = extract_layers_force_visible(filepath)
-    except Exception as e:
-        print(f"DEBUG: extract_layers_force_visible crashed: {e}, running raw salvage")
-        files = None
-    if not files:
-        files = raw_salvage(filepath, "force")
-
+    if mode == 'visible':
+        try:
+            files = save_visible_layers(filepath)
+        except Exception as e:
+            print(f"DEBUG: save_visible_layers crashed: {e}, running raw salvage")
+            files = None
+        if not files:
+            files = raw_salvage(filepath, "visible")
+    else:
+        try:
+            files = extract_layers_force_visible(filepath)
+        except Exception as e:
+            print(f"DEBUG: extract_layers_force_visible crashed: {e}, running raw salvage")
+            files = None
+        if not files:
+            files = raw_salvage(filepath, "force")
 
     # failure flag if still empty
     if not files:
@@ -139,6 +138,7 @@ else:
         #print("DEBUG: No client email provided, skipping confirmation")
 
     return send_file(zip_path, as_attachment=True)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
