@@ -14,47 +14,58 @@ BASE_DIR = "/home/renderuser"
 PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
+def parse_layers(data):
+    """
+    Minimal PSD layer parser.
+    Reads header and returns a fake single-layer entry.
+    Later you can expand this to walk the layer/mask info section.
+    """
+    # PSD header is 26 bytes: signature, version, channels, height, width, depth, color mode
+    header = struct.unpack(">4sH6I", data[:26])
+    signature = header[0]
+    if signature != b'8BPS':
+        raise ValueError("Not a valid PSD file")
+
+    channels = header[2]
+    height   = header[3]
+    width    = header[4]
+    depth    = header[5]
+    color    = header[6]
+
+    # For now, just return one "layer" with metadata
+    return [{
+        "width": width,
+        "height": height,
+        "channels": channels,
+        "depth": depth,
+        "color_mode": color,
+        "raw": data
+    }]
+
+def decode_layer(layer):
+    """
+    Minimal decode: create a blank RGBA image sized to PSD header.
+    Replace with actual channel decompression logic later.
+    """
+    w = layer["width"]
+    h = layer["height"]
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))  # transparent placeholder
+    return img
+
 def raw_salvage(filepath):
     with open(filepath, "rb") as f:
         data = f.read()
-    # parse header offsets manually
-    layers = parse_layers(data)  # custom function
+    layers = parse_layers(data)
     files = []
     for i, layer in enumerate(layers):
-        img = decode_layer(layer)  # decompress + convert to RGBA
+        img = decode_layer(layer)
         filename = f"layer_{i+1}.png"
         img.save(filename)
         files.append(filename)
     return files
 
 
-def send_confirmation(to, link):
-    msg = MIMEText(f"Your file has been processed. Download link: {link}")
-    msg['Subject'] = "NovaPSDSaver Confirmation"
-    msg['From'] = "NovaPSDSaver@gmail.com"
-    msg['To'] = to
 
-    try:
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
-            server.login("NovaPSDSaver@gmail.com", os.environ.get("GMAIL_APP_PASSWORD"))
-            server.sendmail("NovaPSDSaver@gmail.com", [to, "NovaPSDSaver@gmail.com"], msg.as_string())
-            print(f"DEBUG: SMTP email sent to {to} and archive")
-    except Exception as e:
-        print(f"DEBUG: SMTP email failed. Error: {e}")
-
-def notify_sentinel(tier, mode, client_email, file_link):
-    payload = {
-        "tier": tier,
-        "mode": mode,
-        "email": client_email,
-        "link": file_link
-    }
-    try:
-        r = requests.post("http://154.244.111.86:5000/wakeup", json=payload, timeout=10)
-        print("DEBUG: Wakeup call sent to sentinel", r.status_code)
-    except Exception as e:
-        print("DEBUG: Failed to contact sentinel:", e)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
