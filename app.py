@@ -20,30 +20,38 @@ from PIL import Image
 import io
 
 def raw_salvage(filepath):
+    try:
+        # First attempt: sanitize header and parse with psd_tools
+        psd = open_psd_raw_salvage(filepath)  # the sanitizer routine
+        files = []
+        for i, layer in enumerate(psd):
+            try:
+                layer.visible = True
+                img = layer.topil()
+                if img:
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    safe_name = layer.name.replace(" ", "_") or f"layer{i}"
+                    files.append((f"{i}_{safe_name}.png", buf.getvalue()))
+            except Exception as e:
+                print(f"DEBUG: Skipped layer due to error: {e}", flush=True)
+        if files:
+            return files
+    except Exception as e:
+        print(f"DEBUG: Sanitized header salvage failed: {e}", flush=True)
+
+    # Second attempt: binary brute-force
     with open(filepath, "rb") as f:
         data = f.read()
-
-    # Skip the PSD header (first 26 bytes) and resource blocks.
-    # This is a brute-force hack: assume the rest is composite image data.
-    # In corrupted PSDs, this may still contain usable pixel info.
     offset = 26
     raw_bytes = data[offset:]
-
     try:
-        # Try to interpret the remaining bytes as an image
-        img = Image.open(io.BytesIO(raw_bytes))
-        img = img.convert("RGBA")
+        img = Image.open(io.BytesIO(raw_bytes)).convert("RGBA")
     except Exception:
-        # Fallback: just produce a blank placeholder
         img = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
-
-    filename = "salvage.png"
-    img.save(filename)
-    return [filename]
-
-
-
-
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return [("salvage.png", buf.getvalue())]
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
