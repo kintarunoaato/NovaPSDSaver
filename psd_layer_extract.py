@@ -21,6 +21,25 @@ def save_visible_layer(layer, output_files, index_prefix=""):
     except Exception as e:
         print(f"DEBUG: Error on {getattr(layer, 'name', 'unknown')}: {e}", flush=True)
 
+def detect_bad_field(msg: str):
+    if "ColorMode" in msg:
+        return "ColorMode"
+    elif "Depth" in msg:
+        return "Depth"
+    elif "Channels" in msg:
+        return "Channels"
+    elif "Signature" in msg:
+        return "Signature"
+    elif "Version" in msg:
+        return "Version"
+    elif "Height" in msg:
+        return "Height"
+    elif "Width" in msg:
+        return "Width"
+    elif "Reserved" in msg:
+        return "Reserved"
+    return None
+
 def save_visible_layers(filepath):
     output_files = []
     try:
@@ -29,14 +48,23 @@ def save_visible_layers(filepath):
         for i, layer in enumerate(psd):
             save_visible_layer(layer, output_files, index_prefix=f"{i}_")
         print(f"DEBUG: save_visible_layers collected {len(output_files)} files")
+        return output_files
     except Exception as e:
-        print(f"DEBUG: PSD parse failed: {e}, retrying with salvage-visible mode")
+        msg = str(e)
+        print(f"DEBUG: PSD parse failed: {msg}, retrying with salvage-visible mode")
+        bad_field = detect_bad_field(msg)
         try:
             # Retry with strict=False to tolerate corruption
             psd = PSDImage.open(filepath, strict=False)
             for i, layer in enumerate(psd):
                 save_visible_layer(layer, output_files, index_prefix=f"{i}_")
             print(f"DEBUG: salvage-visible collected {len(output_files)} files")
+            return output_files
         except Exception as e2:
-            print(f"DEBUG: salvage-visible also failed: {e2}")
-    return output_files
+            msg2 = str(e2)
+            print(f"DEBUG: salvage-visible also failed: {msg2}")
+            bad_field2 = detect_bad_field(msg2)
+            # Forward the bad_field info if we detected it
+            if bad_field or bad_field2:
+                return {"bad_field": bad_field or bad_field2}
+    return output_files if output_files else None
